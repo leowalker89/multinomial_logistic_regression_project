@@ -9,12 +9,14 @@ knitr::opts_chunk$set(echo = TRUE)
 # installing caret for train/test split
 library(caret)
 library(nnet)
+library(corrplot)
 ```
 
 ## Multinomial Logistic Regression
 
 This R Markdown demonstrates how to use Multinomial Logistic Regression on a small dataset that is predicting which drug to presecribe to a patient.
 
+dataset is from: https://www.kaggle.com/datasets/shivamb/machine-predictive-maintenance-classification
 
 ```{r}
 pred_maint <-read.csv("../data/predictive_maintenance.csv", header=TRUE, sep= ",")
@@ -22,6 +24,7 @@ str(pred_maint)
 ```
 
 ## Change the chr types to factors, limit to target = 1 so we only have occurances of failures, and then remove unnecessary variables (UID and Product_ID)
+
 UID: unique identifier ranging from 1 to 10000
 productID: consisting of a letter L, M, or H for low (50% of all products), medium (30%), and high (20%) as product quality variants and a variant-specific serial number
 air temperature [K]: generated using a random walk process later normalized to a standard deviation of 2 K around 300 K
@@ -32,27 +35,38 @@ tool wear [min]: The quality variants H/M/L add 5/3/2 minutes of tool wear to th
 'machine failure' label that indicates, whether the machine has failed in this particular data point for any of the following failure modes are true.
 
 ```{r}
-pred_maint$Type <- as.factor(pred_maint$Type)
-pred_maint$Failure_Type <- as.factor(pred_maint$Failure_Type)
 
+# limit the predict failure dataframe to only when failures occurred
 pred_failure <- pred_maint[pred_maint$Target ==1,]
-pred_failure <- pred_failure[pred_failure$Failure_Type != "Random Failures", ]
 pred_failure <- pred_failure[,!names(pred_failure) %in% c("UDI", "Product_ID", "Target")]
+
+# set the chr types to factors
+pred_failure$Type <- as.factor(pred_failure$Type)
+pred_failure$Failure_Type <- as.factor(pred_failure$Failure_Type)
+str(pred_failure)
 ```
 
 ## Check for multicollinearity between variables or other exploratory data analysis/descriptive analysis?
 
 ```{r}
-
+num_vars <- c("Air_temperature_K", "Process_temperature_K", "Rotational_speed_rpm", "Torque_Nm", "Tool.wear_min")
+M <- cor(pred_failure[num_vars])
+corrplot(M, method="circle")
 ````
+It looks like Process_temperature_K is correlated with Air_temperature_K and that Rotational_Speed_rpm is negatively correlated with Torque, so we will have to remove one of each respectively.
+```{r}
+
+pred_failure_lim <- pred_failure[c("Type", "Air_temperature_K", "Rotational_speed_rpm", "Tool.wear_min", "Failure_Type")]
+str(pred_failure)
+```
 
 ## Splitting the data in train and test
 
 ```{r}
 #Splitting the data using a function from dplyr package
-index <- createDataPartition(pred_failure$Failure_Type, p = .70, list = FALSE)
-train <- pred_failure[index,]
-test <- pred_failure[-index,]
+index <- createDataPartition(pred_failure_lim$Failure_Type, p = .80, list = FALSE)
+train <- pred_failure_lim[index,]
+test <- pred_failure_lim[-index,]
 
 ````
 
@@ -65,13 +79,13 @@ multinom_model <- multinom(Failure_Type ~ ., data = train)
 # Checking the model
 summary(multinom_model)
 ````
-## Get model coefficients
+### Get model coefficients
 
 ```{r}
 exp(coef(multinom_model))
 ````
 
-## Predicting Failure Type on Train Dataset
+### Predicting Failure Type on Train Dataset
 
 ```{r}
 # Predicting the values for train dataset
@@ -83,7 +97,7 @@ confusionMatrix(train$Failure_Predicted, train$Failure_Type)
 
 ````
 
-## Predicting Failure Type on Test Dataset
+### Predicting Failure Type on Test Dataset
 
 ```{r}
 # Predicting the class for test dataset
