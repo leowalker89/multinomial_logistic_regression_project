@@ -1,0 +1,96 @@
+---
+title: "Code_Handout"
+author: "Jackie Vogel, Sarah Millard, Ignacio Luque, Leo Walker"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# installing caret for train/test split
+library(caret)
+library(nnet)
+```
+
+## Multinomial Logistic Regression
+
+This R Markdown demonstrates how to use Multinomial Logistic Regression on a small dataset that is predicting which drug to presecribe to a patient.
+
+
+```{r}
+pred_maint <-read.csv("../data/predictive_maintenance.csv", header=TRUE, sep= ",")
+str(pred_maint)
+```
+
+## Change the chr types to factors, limit to target = 1 so we only have occurances of failures, and then remove unnecessary variables (UID and Product_ID)
+
+
+```{r}
+pred_maint$Type <- as.factor(pred_maint$Type)
+pred_maint$Failure_Type <- as.factor(pred_maint$Failure_Type)
+
+pred_failure <- pred_maint[pred_maint$Target ==1,]
+pred_failure <- pred_failure[pred_failure$Failure_Type != "Random Failures", ]
+pred_failure <- pred_failure[,!names(pred_failure) %in% c("UDI", "Product_ID", "Target")]
+```
+
+## Check for multicollinearity between variables or other exploratory data analysis/descriptive analysis?
+
+```{r}
+
+````
+
+## Splitting the data in train and test
+
+```{r}
+#Splitting the data using a function from dplyr package
+index <- createDataPartition(pred_failure$Failure_Type, p = .70, list = FALSE)
+train <- pred_failure[index,]
+test <- pred_failure[-index,]
+
+````
+
+## Train the model
+
+```{r}
+# Training the multinomial model
+multinom_model <- multinom(Failure_Type ~ ., data = train)
+
+# Checking the model
+summary(multinom_model)
+````
+## Get model coefficients
+
+```{r}
+exp(coef(multinom_model))
+````
+
+## Predicting Failure Type on Train Dataset
+
+```{r}
+# Predicting the values for train dataset
+train$Failure_Predicted <- predict(multinom_model, newdata = train, "class")
+# Building classification table
+tab <- table(train$Failure_Type, train$Failure_Predicted)
+
+confusionMatrix(train$Failure_Predicted, train$Failure_Type)
+
+````
+
+## Predicting Failure Type on Test Dataset
+
+```{r}
+# Predicting the class for test dataset
+test$Failure_Predicted <- predict(multinom_model, newdata = test, "class")
+# Building classification table
+tab <- table(test$Failure_Type, test$Failure_Predicted)
+tab
+confusionMatrix(test$Failure_Predicted, test$Failure_Type)
+````
+
+
+
+
+
+
+
+
