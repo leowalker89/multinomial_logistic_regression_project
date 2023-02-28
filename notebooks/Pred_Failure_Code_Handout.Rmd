@@ -18,26 +18,47 @@ This R Markdown demonstrates how to use Multinomial Logistic Regression on a sma
 
 dataset is from: https://www.kaggle.com/datasets/shivamb/machine-predictive-maintenance-classification
 
+It is a synthetic dataset that reflects what is encountered in industry. 
+
 ```{r}
 pred_maint <-read.csv("../data/predictive_maintenance.csv", header=TRUE, sep= ",")
 str(pred_maint)
+table(pred_maint$Target)
 ```
 
-## Change the chr types to factors, limit to target = 1 so we only have occurances of failures, and then remove unnecessary variables (UID and Product_ID)
 
-UID: unique identifier ranging from 1 to 10000
-productID: consisting of a letter L, M, or H for low (50% of all products), medium (30%), and high (20%) as product quality variants and a variant-specific serial number
-air temperature [K]: generated using a random walk process later normalized to a standard deviation of 2 K around 300 K
-process temperature [K]: generated using a random walk process normalized to a standard deviation of 1 K, added to the air temperature plus 10 K.
-rotational speed [rpm]: calculated from powepower of 2860 W, overlaid with a normally distributed noise
-torque [Nm]: torque values are normally distributed around 40 Nm with an Ïƒ = 10 Nm and no negative values.
-tool wear [min]: The quality variants H/M/L add 5/3/2 minutes of tool wear to the used tool in the process. and a
+
+**UID**: unique identifier ranging from 1 to 10000
+
+**productID**: consisting of a letter L, M, or H for low (50% of all products), medium (30%), and high (20%) as product quality variants and a variant-specific serial number
+
+**type**: consisting of the letter L, M or H from the productID.
+
+**air temperature [K]**: generated using a random walk process later normalized to a standard deviation of 2 K around 300 K
+
+**process temperature [K]**: generated using a random walk process normalized to a standard deviation of 1 K, added to the air temperature plus 10 K.
+
+**rotational speed [rpm]**: calculated from powepower of 2860 W, overlaid with a normally distributed noise
+
+**torque [Nm]**: torque values are normally distributed around 40 Nm with an Ïƒ = 10 Nm and no negative values.
+
+**tool wear [min]**: The quality variants H/M/L add 5/3/2 minutes of tool wear to the used tool in the process. and a
 'machine failure' label that indicates, whether the machine has failed in this particular data point for any of the following failure modes are true.
+
+**target**: A target variable that indicates that a failure occurred.
+
+**Failure_Type**: The type of failure that occurred.
+
+### Dataset preparation
+- Limit the dataset to where "target" == 1 so that we only have occurrences of failures
+- Remove unnecessary variables like UID, Product_ID, and Target
+- change remaining chr types to factors
 
 ```{r}
 
 # limit the predict failure dataframe to only when failures occurred
 pred_failure <- pred_maint[pred_maint$Target ==1,]
+pred_failure <- pred_failure[pred_failure$Failure_Type != "No Failure",]
 pred_failure <- pred_failure[,!names(pred_failure) %in% c("UDI", "Product_ID", "Target")]
 
 # set the chr types to factors
@@ -52,17 +73,41 @@ str(pred_failure)
 num_vars <- c("Air_temperature_K", "Process_temperature_K", "Rotational_speed_rpm", "Torque_Nm", "Tool.wear_min")
 M <- cor(pred_failure[num_vars])
 corrplot(M, method="circle")
-````
-It looks like Process_temperature_K is correlated with Air_temperature_K and that Rotational_Speed_rpm is negatively correlated with Torque, so we will have to remove one of each respectively.
+```
+It looks like we have two pairs of variables that are highly correlated with each other, so we will have to remove one of each respectively.:
+
+- Process_temperature_K is correlated with Air_temperature_K 
+- Rotational_Speed_rpm is negatively correlated with Torque
+
+After running iterations with different pairs it looks like Air_temperature_K and Rotational_speed_rpm gives us our best accuracy. 
+
 ```{r}
 
-pred_failure_lim <- pred_failure[c("Type", "Air_temperature_K", "Rotational_speed_rpm", "Tool.wear_min", "Failure_Type")]
-str(pred_failure)
+pred_failure_lim <- pred_failure[c("Type", "Process_temperature_K", "Rotational_speed_rpm", "Tool.wear_min", "Failure_Type")]
+str(pred_failure_lim)
 ```
+```{r}
+library(ggplot2)
+
+ggplot(pred_failure_lim, aes(x = Failure_Type, y = Process_temperature_K)) +
+  geom_violin() + guides(fill = guide_legend(title = "Failure Type vs Air Temperature (K)"))
+
+ggplot(pred_failure_lim, aes(x = Failure_Type, y = Rotational_speed_rpm )) +
+  geom_violin() + guides(fill = guide_legend(title = "Failure Type vs Rotational_speed_rpm"))
+
+ggplot(pred_failure_lim, aes(x = Failure_Type, y = Tool.wear_min)) +
+  geom_violin() + guides(fill = guide_legend(title = "Failure Type vs Tool Wear"))
+```
+From the box plots it looks like :
+- Heat Dissipation Failures mainly occur where the process_temperature isn't low (around 302 degrees K).
+- That if a failure happens at high rotational speeds that it was most likely a power failure or tool wear failure. 
+- Overstrain Failure and Tool Wear Failures happen with high tool wear mins.
+
 
 ## Splitting the data in train and test
 
 ```{r}
+set.seed(424242) # setting the seed to always get the same train/test split
 #Splitting the data using a function from dplyr package
 index <- createDataPartition(pred_failure_lim$Failure_Type, p = .80, list = FALSE)
 train <- pred_failure_lim[index,]
@@ -73,6 +118,7 @@ test <- pred_failure_lim[-index,]
 ## Train the model
 
 ```{r}
+set.seed(424242) # setting the seed to always get the same model_fit
 # Training the multinomial model
 multinom_model <- multinom(Failure_Type ~ ., data = train)
 
@@ -84,6 +130,8 @@ summary(multinom_model)
 ```{r}
 exp(coef(multinom_model))
 ````
+As we expected the main coefficient impacting Overstrain Failure is Tool.wear_min for Type L
+Power failure and Tool Wear Failure's main impact is rotational_speed and tool_wear but they are effected differently from the Type.
 
 ### Predicting Failure Type on Train Dataset
 
@@ -93,21 +141,36 @@ train$Failure_Predicted <- predict(multinom_model, newdata = train, "class")
 # Building classification table
 tab <- table(train$Failure_Type, train$Failure_Predicted)
 
-confusionMatrix(train$Failure_Predicted, train$Failure_Type)
+cm <- confusionMatrix(train$Failure_Predicted, train$Failure_Type)
+cm_class <- cm$byClass
+cm
+recall <- mean(cm_class[,"Sensitivity"])
+recall
+precision <- mean(cm_class[,"Pos Pred Value"])
+precision
 
 ````
+It looks like with the train set that we have 73% accuracy, 73% recall (Sensitivity) and 75% precision (Pos Pred Value)
 
 ### Predicting Failure Type on Test Dataset
 
 ```{r}
+
+
 # Predicting the class for test dataset
 test$Failure_Predicted <- predict(multinom_model, newdata = test, "class")
 # Building classification table
 tab <- table(test$Failure_Type, test$Failure_Predicted)
 tab
-confusionMatrix(test$Failure_Predicted, test$Failure_Type)
+cm <-confusionMatrix(test$Failure_Predicted, test$Failure_Type)
+cm_class <- cm$byClass
+cm
+recall <- mean(cm_class[,"Sensitivity"])
+recall
+precision <- mean(cm_class[,"Pos Pred Value"])
+precision
 ````
-
+It looks like with the train set that we have 78% accuracy, 77% recall (Sensitivity) and 82% precision (Pos Pred Value)
 
 
 
