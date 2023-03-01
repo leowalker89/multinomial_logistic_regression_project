@@ -18,11 +18,11 @@ Multinomial logistic regression can be used in many different fields, such as ma
 
 Additional references can be found at.
 
-[UCLA Multinomial logistic regression] (https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/)
+[UCLA Multinomial logistic regression](https://stats.oarc.ucla.edu/r/dae/multinomial-logistic-regression/)
 
 [mygreatlearning blog](https://www.mygreatlearning.com/blog/multinomial-logistic-regression/)
 
-[statstest] (https://www.statstest.com/multinomial-logistic-regression/)
+[statstest](https://www.statstest.com/multinomial-logistic-regression/)
 
 [bookdown](https://bookdown.org/chua/ber642_advanced_regression/multinomial-logistic-regression.html)
 
