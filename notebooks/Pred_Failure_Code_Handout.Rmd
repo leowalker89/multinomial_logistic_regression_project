@@ -26,8 +26,6 @@ str(pred_maint)
 table(pred_maint$Target)
 ```
 
-
-
 **UID**: unique identifier ranging from 1 to 10000
 
 **productID**: consisting of a letter L, M, or H for low (50% of all products), medium (30%), and high (20%) as product quality variants and a variant-specific serial number
