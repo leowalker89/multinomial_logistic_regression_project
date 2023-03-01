@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(caret)
 library(nnet)
 library(corrplot)
+library(ggplot2)
 ```
 
 ## Multinomial Logistic Regression
@@ -25,6 +26,7 @@ pred_maint <-read.csv("../data/predictive_maintenance.csv", header=TRUE, sep= ",
 str(pred_maint)
 table(pred_maint$Target)
 ```
+#### Independent Variables
 
 **UID**: unique identifier ranging from 1 to 10000
 
@@ -43,6 +45,8 @@ table(pred_maint$Target)
 **tool wear [min]**: The quality variants H/M/L add 5/3/2 minutes of tool wear to the used tool in the process. and a
 'machine failure' label that indicates, whether the machine has failed in this particular data point for any of the following failure modes are true.
 
+#### Dependent Variables
+
 **target**: A target variable that indicates that a failure occurred.
 
 **Failure_Type**: The type of failure that occurred.
@@ -53,7 +57,6 @@ table(pred_maint$Target)
 - change remaining chr types to factors
 
 ```{r}
-
 # limit the predict failure dataframe to only when failures occurred
 pred_failure <- pred_maint[pred_maint$Target ==1,]
 pred_failure <- pred_failure[pred_failure$Failure_Type != "No Failure",]
@@ -80,13 +83,10 @@ It looks like we have two pairs of variables that are highly correlated with eac
 After running iterations with different pairs it looks like Air_temperature_K and Rotational_speed_rpm gives us our best accuracy. 
 
 ```{r}
-
 pred_failure_lim <- pred_failure[c("Type", "Process_temperature_K", "Rotational_speed_rpm", "Tool.wear_min", "Failure_Type")]
 str(pred_failure_lim)
 ```
 ```{r}
-library(ggplot2)
-
 ggplot(pred_failure_lim, aes(x = Failure_Type, y = Process_temperature_K)) +
   geom_violin() + guides(fill = guide_legend(title = "Failure Type vs Air Temperature (K)"))
 
@@ -101,6 +101,11 @@ From the box plots it looks like :
 - That if a failure happens at high rotational speeds that it was most likely a power failure or tool wear failure. 
 - Overstrain Failure and Tool Wear Failures happen with high tool wear mins.
 
+```{r}
+# scaling the process_temperature_K to put it in a more standard range
+pred_failure_lim$Process_temperature_K <- scale(pred_failure_lim$Process_temperature_K)
+
+```
 
 ## Splitting the data in train and test
 
@@ -111,7 +116,7 @@ index <- createDataPartition(pred_failure_lim$Failure_Type, p = .80, list = FALS
 train <- pred_failure_lim[index,]
 test <- pred_failure_lim[-index,]
 
-````
+```
 
 ## Train the model
 
@@ -122,12 +127,12 @@ multinom_model <- multinom(Failure_Type ~ ., data = train)
 
 # Checking the model
 summary(multinom_model)
-````
+```
 ### Get model coefficients
 
 ```{r}
 exp(coef(multinom_model))
-````
+```
 As we expected the main coefficient impacting Overstrain Failure is Tool.wear_min for Type L
 Power failure and Tool Wear Failure's main impact is rotational_speed and tool_wear but they are effected differently from the Type.
 
@@ -146,8 +151,7 @@ recall <- mean(cm_class[,"Sensitivity"])
 recall
 precision <- mean(cm_class[,"Pos Pred Value"])
 precision
-
-````
+```
 It looks like with the train set that we have 73% accuracy, 73% recall (Sensitivity) and 75% precision (Pos Pred Value)
 
 ### Predicting Failure Type on Test Dataset
@@ -167,11 +171,14 @@ recall <- mean(cm_class[,"Sensitivity"])
 recall
 precision <- mean(cm_class[,"Pos Pred Value"])
 precision
-````
+```
 It looks like with the train set that we have 78% accuracy, 77% recall (Sensitivity) and 82% precision (Pos Pred Value)
 
 
+```{r}
 
+
+```
 
 
 
