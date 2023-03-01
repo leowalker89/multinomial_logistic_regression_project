@@ -1,10 +1,10 @@
-# multinomial_logistic_regression_project
+# Multinomial Logistic Regression Project
 
 Repo for a group project for CS 4442 Advanced Probability and Statistics for Data Science
 
-**Group Members:** Ignacio Luque, Leo Walker, Sarah Millard, and Jackie Vogel
+#### **Group Members:** Ignacio Luque, Leo Walker, Sarah Millard, and Jackie Vogel
 
-Multinomial Logistic Regression is useful for predicting an outcome that can be one of multiple categories. An example can be predicting the type of disease a patient has based on their symptoms. A bank could also use it to classify a customer as low, medium, or high risk for loans. 
+**Multinomial Logistic Regression** is useful for predicting an outcome that can be one of multiple categories. An example can be predicting the type of disease a patient has based on their symptoms. A bank could also use it to classify a customer as low, medium, or high risk for loans. 
 
 There are some **data requirements** for Multinomial Logistic Regression. The outcome variable has to be categorical with more than 2 levels. The predictor variables can be either categorical or continuous. The relationships between the independent and dependent variables must be linear. The observations/records in the data must be independent of each other, meaning that they should not influence each other. Independent variables should not be highly correlated with each other.
 
