@@ -15,7 +15,7 @@ library(ggplot2)
 
 ## Multinomial Logistic Regression
 
-This R Markdown demonstrates how to use Multinomial Logistic Regression on a small dataset that is predicting which drug to presecribe to a patient.
+This R Markdown demonstrates how to use Multinomial Logistic Regression on a dataset that is predicting the type of machine failure based on several different variables.
 
 dataset is from: https://www.kaggle.com/datasets/shivamb/machine-predictive-maintenance-classification
 
@@ -47,9 +47,12 @@ table(pred_maint$Target)
 
 #### Dependent Variables
 
-**target**: A target variable that indicates that a failure occurred.
+**target**: A target variable that indicates that a failure occurred. 0 indicates No Failure, 1 indicates some type of Failure.
 
-**Failure_Type**: The type of failure that occurred.
+**Failure_Type**: The type of failure that occurred. The types are: No Failure and Random Failures which occur when target is 0; Power Failure, Tool Wear Failure, Overstrain Failure, and Heat Dissipation Failure which occur when target is 1.
+
+#### Research Question
+Using multinomial logistic regression on this data set, we can predict what type of machine failure will occur based on the type of wear it has seen. 
 
 ### Dataset preparation
 - Limit the dataset to where "target" == 1 so that we only have occurrences of failures
