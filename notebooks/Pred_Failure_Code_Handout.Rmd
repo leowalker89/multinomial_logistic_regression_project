@@ -265,6 +265,17 @@ summary(multinom_model)
 ```{r}
 exp(coef(multinom_model))
 ```
+How these results are interpreted would differ depending on wether the independent variable is continous or categorical
+
+Looking at the variable Process_temperature_K and Power Failure. The results would be interpreted as follows:
+
+A one-unit increase in the variable Process_temperature_K is associated with the increase in the log odds of being a Heat Dissipation Failure vs. Power Failure by .2296 .
+
+Looking at the variables TypeL and Tool Wear Failure. The results would be interpreted as follows:
+
+
+The log odds of being a Heat Dissipation Failure vs. Tool Wear Failure. will increase by 0.432 if moving from Type high to Type low
+
 As we expected the main coefficient impacting Overstrain Failure is Tool.wear_min for Type L
 Power failure and Tool Wear Failure's main impact is rotational_speed and tool_wear but they are effected differently from the Type.
 
@@ -284,6 +295,15 @@ precision <- mean(cm_class[,"Pos Pred Value"])
 precision
 ```
 It looks like with the train set that we have 73% accuracy, 73% recall (Sensitivity) and 75% precision (Pos Pred Value)
+
+```{r}
+
+
+head(fitted(multinom_model))
+
+head(train)
+
+```
 
 ### Predicting Failure Type on Test Dataset
 
