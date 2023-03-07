@@ -12,22 +12,24 @@ library(nnet)
 library(corrplot)
 library(ggplot2)
 library(car)
+library(knitr)
+library(GGally)
+library(patchwork)
+library (dplyr)
 ```
 
-### Blah BLah Blah added something
+### Multinomial Logistic Regression
 
-## Multinomial Logistic Regression
-
-This R Markdown demonstrates how to use Multinomial Logistic Regression on a small dataset that is predicting which drug to presecribe to a patient.
+This R Markdown demonstrates how to use Multinomial Logistic Regression on a small dataset that is predicting the type of machine failure based on several different variables.
 
 dataset is from: https://www.kaggle.com/datasets/shivamb/machine-predictive-maintenance-classification
 
 It is a synthetic dataset that reflects what is encountered in industry. 
-
 ```{r}
 pred_maint <-read.csv("../data/predictive_maintenance.csv", header=TRUE, sep= ",")
 str(pred_maint)
 table(pred_maint$Target)
+table(pred_maint$Failure_Type)
 ```
 #### Independent Variables
 
@@ -50,11 +52,15 @@ table(pred_maint$Target)
 
 #### Dependent Variables
 
-**target**: A target variable that indicates that a failure occurred.
+**target**: A target variable that indicates that a failure occurred. 0 indicates No Failure, 1 indicates some type of Failure.
 
-**Failure_Type**: The type of failure that occurred.
+**Failure_Type**: The type of failure that occurred. The types are: No Failure and Random Failures which occur when target is 0; Power Failure, Tool Wear Failure, Overstrain Failure, and Heat Dissipation Failure which occur when target is 1.
+
+#### Research Question
+Using Multinomial Logistic Regression on this data set, we can predict what type of machine failure will occur based on the type of wear it has seen. 
 
 ### Dataset preparation
+
 - Limit the dataset to where "target" == 1 so that we only have occurrences of failures
 - Remove unnecessary variables like UID, Product_ID, and Target
 - change remaining chr types to factors
@@ -64,19 +70,122 @@ table(pred_maint$Target)
 pred_failure <- pred_maint[pred_maint$Target ==1,]
 pred_failure <- pred_failure[pred_failure$Failure_Type != "No Failure",]
 pred_failure <- pred_failure[,!names(pred_failure) %in% c("UDI", "Product_ID", "Target")]
-
 # set the chr types to factors
 pred_failure$Type <- as.factor(pred_failure$Type)
 pred_failure$Failure_Type <- as.factor(pred_failure$Failure_Type)
+
 str(pred_failure)
 ```
-# Check for our assumptions:
 
 ## Check that the independent variables are linear with the predicted variable
 
 ```{r}
-model <- glm(Failure_Type ~ Air_temperature_K + Process_temperature_K + Rotational_speed_rpm + Torque_Nm + Tool.wear_min, data = pred_failure)
+
+model <-
+  multinom(
+    Failure_Type ~ Air_temperature_K + Process_temperature_K + Rotational_speed_rpm + Torque_Nm + Tool.wear_min,
+    data = pred_failure
+  )
+
+summary(model)
+
+# residuals
+#calculate residuals
+residuals <- as_tibble(residuals(model)) %>% #calculate residu
+  setNames(paste('resid.', names(.), sep = "")) %>% #update column
+  mutate(obs_num = 1:n()) #add obs number
+
+#calculate predicted probabilities
+pred_probs <- as_tibble(predict(model, type = "probs")) %>%
+  mutate(obs_num = 1:n())
+
+
+pred_failure_1 <- cross_join(pred_failure, pred_probs) #add probs
+pred_failure_1 <- cross_join(pred_failure_1, residuals) #add resid
 ```
+
+```{r}
+plot(pred_failure_1$`resid.Heat Dissipation Failure` ~ pred_failure_1$`Heat Dissipation Failure`)
+
+residual_plot <- function(data, x, y, title) {
+  data |> 
+    ggplot(aes(x = x, y = y)) +
+    geom_point(size = 2) +
+    geom_hline(yintercept = 0, lty = 2, size = 1, colour = "red") +
+    labs(x = "Predicted", y = "Residuals", title = paste(title)) +
+    theme_test() +
+    theme(plot.title = element_text(hjust = 0.5))
+}
+
+p1 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Heat Dissipation Failure`,
+    pred_failure_1$`resid.Heat Dissipation Failure`,
+    title = "Heat Dissipation Failure"
+  )
+p2 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Overstrain Failure`,
+    pred_failure_1$`resid.Overstrain Failure`,
+    title = "Overstrain Failure"
+  )
+p3 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Power Failure`,
+    pred_failure_1$`resid.Power Failure`,
+    title = "Power Failure"
+  )
+p4 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Tool Wear Failure`,
+    pred_failure_1$`resid.Tool Wear Failure`,
+    title = "Tool Wear Failure"
+  )
+
+
+p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+```
+
+### Residual vs Air Temperature
+
+```{r}
+p1 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Air_temperature_K`,
+    pred_failure_1$`resid.Heat Dissipation Failure`,
+    title = "Heat Dissipation Failure") +
+  labs(x = "Air_temperature_K")
+p2 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Air_temperature_K`,
+    pred_failure_1$`resid.Overstrain Failure`,
+    title = "Overstrain Failure") +
+  labs(x = "Air_temperature_K")
+p3 <-
+  residual_plot(
+    pred_failure_1, 
+    pred_failure_1$`Air_temperature_K`,
+    pred_failure_1$`resid.Power Failure`, 
+    title = "Power Failure") +
+  labs(x = "Air_temperature_K")
+p4 <-
+  residual_plot(
+    pred_failure_1,
+    pred_failure_1$`Air_temperature_K`,
+    pred_failure_1$`resid.Tool Wear Failure`,
+    title = "Tool Wear Failure") +
+  labs(x = "Air_temperature_K")
+
+
+p1 + p2 + p3 + p4 + plot_layout(ncol = 2)
+```
+
 ## Ensure that each observation is independent from the others
 
 We can intuitively confirm that each observation is independent from the others because there isn't any interaction between each machine.
@@ -87,7 +196,29 @@ We can intuitively confirm that each observation is independent from the others 
 num_vars <- c("Air_temperature_K", "Process_temperature_K", "Rotational_speed_rpm", "Torque_Nm", "Tool.wear_min")
 M <- cor(pred_failure[num_vars])
 corrplot(M, method="circle")
+
+# **** Get talking points to VIF ****
+#using VIF 
+VIF.model<-glm(Failure_Type ~ Air_temperature_K + Process_temperature_K + Rotational_speed_rpm + Torque_Nm + Tool.wear_min,family = "binomial",data = pred_failure)
+
+vif<-vif(VIF.model)
+
+1/vif
+
+#using Pearson pairwise 
+kable(cor(pred_failure[,num_vars]))
+
+#pred_failure |> 
+#  select(num_vars) |> 
+#  plot_correlation ()
+
+
+#pred_failure |> 
+#  select(num_vars) |> 
+#  ggpairs()
 ```
+
+
 It looks like we have two pairs of variables that are highly correlated with each other, so we will have to remove one of each respectively.:
 
 - Process_temperature_K is correlated with Air_temperature_K 
@@ -101,12 +232,12 @@ pred_failure_lim <- pred_failure[c("Type", "Process_temperature_K", "Rotational_
 str(pred_failure_lim)
 ```
 ## Data preparation:
+
 Making Process_temperature_K a standard scale
 
 ```{r}
 # scaling the process_temperature_K to put it in a more standard range
 pred_failure_lim$Process_temperature_K <- scale(pred_failure_lim$Process_temperature_K)
-
 ```
 
 ## Splitting the data in train and test
@@ -117,7 +248,6 @@ set.seed(424242) # setting the seed to always get the same train/test split
 index <- createDataPartition(pred_failure_lim$Failure_Type, p = .80, list = FALSE)
 train <- pred_failure_lim[index,]
 test <- pred_failure_lim[-index,]
-
 ```
 
 ## Train the model
@@ -126,7 +256,6 @@ test <- pred_failure_lim[-index,]
 set.seed(424242) # setting the seed to always get the same model_fit
 # Training the multinomial model
 multinom_model <- multinom(Failure_Type ~ ., data = train)
-
 # Checking the model
 summary(multinom_model)
 ```
@@ -146,7 +275,6 @@ Power failure and Tool Wear Failure's main impact is rotational_speed and tool_w
 train$Failure_Predicted <- predict(multinom_model, newdata = train, "class")
 # Building classification table
 tab <- table(train$Failure_Type, train$Failure_Predicted)
-
 cm <- confusionMatrix(train$Failure_Predicted, train$Failure_Type)
 cm_class <- cm$byClass
 cm
@@ -160,8 +288,6 @@ It looks like with the train set that we have 73% accuracy, 73% recall (Sensitiv
 ### Predicting Failure Type on Test Dataset
 
 ```{r}
-
-
 # Predicting the class for test dataset
 test$Failure_Predicted <- predict(multinom_model, newdata = test, "class")
 # Building classification table
@@ -179,10 +305,4 @@ It looks like with the train set that we have 78% accuracy, 77% recall (Sensitiv
 
 
 ```{r}
-
-
 ```
-
-
-
-
