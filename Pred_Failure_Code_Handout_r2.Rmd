@@ -26,7 +26,7 @@ dataset is from: https://www.kaggle.com/datasets/shivamb/machine-predictive-main
 It is a synthetic dataset that reflects what is encountered in industry. 
 
 ```{r}
-pred_maint <-read.csv("predictive_maintenance.csv", header=TRUE, sep= ",")
+pred_maint <-read.csv("data/predictive_maintenance.csv", header=TRUE, sep= ",")
 str(pred_maint)
 table(pred_maint$Target)
 ```
